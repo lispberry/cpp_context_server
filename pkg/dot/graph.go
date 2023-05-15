@@ -13,7 +13,9 @@ func (ref Ref) String() string {
 
 type MemoryGraph struct {
 	graph *gographviz.Graph
-	nodes map[string]*Node
+
+	pointers map[string]*Pointer
+	nodes    map[string]*Node
 }
 
 const defaultGraphName = "G"
@@ -47,8 +49,8 @@ const addressPort = "ref1"
 const dataPort = "data"
 const nextPort = "ref2"
 
-func newTableFromNode(node *Node) string {
-	const Table = `<<table border="0" cellspacing="0" cellborder="1">
+func (node *Node) Table() string {
+	const table = `<<table border="0" cellspacing="0" cellborder="1">
 		<tr>
 			<td port="ref1" width="28" height="36">%s</td>
 			<td port="data" width="28" height="36">%s</td>
@@ -61,14 +63,43 @@ func newTableFromNode(node *Node) string {
 		</tr>
 	</table>>`
 
-	return fmt.Sprintf(Table, node.Address, node.Data, node.Next)
+	return fmt.Sprintf(table, node.Address, node.Data, node.Next)
+}
+
+type Pointer struct {
+	Name    string
+	Address Ref
+}
+
+func (p *Pointer) Table() string {
+	var address string
+	if p.Address == "0x0" || p.Address == "" {
+		address = `<td port="address" width="28" height="36" bgcolor="#C1FF83"></td>`
+	} else {
+		address = fmt.Sprintf(`<td port="address" width="28" height="36" bgcolor="#C1FF83">%s</td>`, p.Address)
+	}
+
+	const table = `<<table border="0" cellspacing="0" cellborder="1">
+		<tr>
+			<td port="name" width="28" height="36">%s</td>
+			%s
+		</tr>
+	</table>>`
+
+	return fmt.Sprintf(table, p.Name, address)
+}
+
+func (mem *MemoryGraph) AddPointer(ref Ref, pointer *Pointer) {
+	mem.pointers[ref.String()] = pointer
+	mem.graph.AddNode(defaultGraphName, ref.String(), map[string]string{
+		"label": pointer.Table(),
+	})
 }
 
 func (mem *MemoryGraph) AddNode(ref Ref, node *Node) {
-	table := newTableFromNode(node)
 	mem.nodes[ref.String()] = node
 	mem.graph.AddNode(defaultGraphName, ref.String(), map[string]string{
-		"label": table,
+		"label": node.Table(),
 	})
 }
 

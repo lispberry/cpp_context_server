@@ -3,10 +3,39 @@ package evaluation
 import (
 	"fmt"
 	"github.com/cyrus-and/gdb"
+	"io"
 	"log"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 )
+
+// TODO(ivo): Remove
+func compileProgram(program string) (string, error) {
+	process, err := os.CreateTemp("", "program-*")
+	if err != nil {
+		return "", err
+	}
+	process.Close()
+
+	file, err := os.CreateTemp("", "example-*.cpp")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(program)
+	if err != nil {
+		return "", err
+	}
+
+	cmd := exec.Command("g++", "-std=c++17", "-O0", "-g", file.Name(), "-o", process.Name())
+	_, err = cmd.Output()
+	os.Remove(file.Name())
+
+	return process.Name(), nil
+}
 
 type LineEvaluator struct {
 	gdb *gdb.Gdb
@@ -32,6 +61,33 @@ func mapGoToCpp(val interface{}) string {
 	default:
 		panic("couldn't mapGoToCpp")
 	}
+}
+
+func readUntil(reader io.Reader, sep byte) ([]byte, error) {
+	var res []byte
+	buf := make([]byte, 1)
+	for {
+		_, err := reader.Read(buf)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		if err == io.EOF || buf[0] == sep {
+			return res, nil
+		}
+		if buf[0] == 13 {
+			continue
+		}
+		res = append(res, buf[0])
+	}
+}
+
+func (lev *LineEvaluator) ReadLine() ([]byte, error) {
+	data, err := readUntil(lev.gdb, 10)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return data, nil
 }
 
 func (lev *LineEvaluator) CurrentFuncName() (string, error) {
