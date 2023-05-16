@@ -1,10 +1,14 @@
-package visualization
+package dot
 
 type DirectedGraph struct {
 	graph map[Vertex][]Vertex
 }
 
 type Vertex string
+
+func (v Vertex) String() string {
+	return string(v)
+}
 
 func NewDirectedGraph() *DirectedGraph {
 	return &DirectedGraph{

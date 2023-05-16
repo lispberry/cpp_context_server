@@ -7,6 +7,15 @@ import (
 
 type Ref string
 
+func NewRef() string {
+	// TODO(ivo)
+	return ""
+}
+
+func (ref Ref) Value() string {
+	return string(ref)
+}
+
 func (ref Ref) String() string {
 	return fmt.Sprintf(`"%s"`, string(ref))
 }
@@ -25,82 +34,50 @@ func newDirectedGraph() *gographviz.Graph {
 	graph.SetName(defaultGraphName)
 	graph.SetDir(true)
 	graph.AddAttr(defaultGraphName, "nodesep", "0.5")
-	graph.AddNode(defaultGraphName, "node", map[string]string{
-		"shape": "plaintext",
-	})
 
 	return graph
 }
 
 func NewMemoryGraph() *MemoryGraph {
 	return &MemoryGraph{
-		graph: newDirectedGraph(),
-		nodes: make(map[string]*Node),
+		graph:    newDirectedGraph(),
+		pointers: make(map[string]*Pointer),
+		nodes:    make(map[string]*Node),
 	}
 }
 
-type Node struct {
-	Address string
-	Data    string
-	Next    string
+var defaultAttrs = map[string]string{
+	"shape": "plaintext",
 }
 
-const addressPort = "ref1"
-const dataPort = "data"
-const nextPort = "ref2"
-
-func (node *Node) Table() string {
-	const table = `<<table border="0" cellspacing="0" cellborder="1">
-		<tr>
-			<td port="ref1" width="28" height="36">%s</td>
-			<td port="data" width="28" height="36">%s</td>
-			<td port="ref2" width="28" height="36">%s</td>
-		</tr>
-		<tr>
-			<td BORDER="0">addr</td>
-			<td BORDER="0">val</td>
-			<td BORDER="0">Next</td>
-		</tr>
-	</table>>`
-
-	return fmt.Sprintf(table, node.Address, node.Data, node.Next)
-}
-
-type Pointer struct {
-	Name    string
-	Address Ref
-}
-
-func (p *Pointer) Table() string {
-	var address string
-	if p.Address == "0x0" || p.Address == "" {
-		address = `<td port="address" width="28" height="36" bgcolor="#C1FF83"></td>`
-	} else {
-		address = fmt.Sprintf(`<td port="address" width="28" height="36" bgcolor="#C1FF83">%s</td>`, p.Address)
+func (mem *MemoryGraph) addDefaultAttrs(attrs map[string]string) map[string]string {
+	for k, v := range defaultAttrs {
+		attrs[k] = v
 	}
-
-	const table = `<<table border="0" cellspacing="0" cellborder="1">
-		<tr>
-			<td port="name" width="28" height="36">%s</td>
-			%s
-		</tr>
-	</table>>`
-
-	return fmt.Sprintf(table, p.Name, address)
+	return attrs
 }
 
-func (mem *MemoryGraph) AddPointer(ref Ref, pointer *Pointer) {
+func (mem *MemoryGraph) AddPointer(pointer *Pointer) Ref {
+	ref := Ref(pointer.Name)
+
 	mem.pointers[ref.String()] = pointer
 	mem.graph.AddNode(defaultGraphName, ref.String(), map[string]string{
 		"label": pointer.Table(),
 	})
+
+	return ref
 }
 
-func (mem *MemoryGraph) AddNode(ref Ref, node *Node) {
+func (mem *MemoryGraph) AddNode(node *Node) Ref {
+
+	ref := Ref(node.Address)
+
 	mem.nodes[ref.String()] = node
-	mem.graph.AddNode(defaultGraphName, ref.String(), map[string]string{
+	mem.graph.AddNode(defaultGraphName, ref.String(), mem.addDefaultAttrs(map[string]string{
 		"label": node.Table(),
-	})
+	}))
+
+	return ref
 }
 
 func (mem *MemoryGraph) DeleteNode(ref Ref) {
@@ -113,9 +90,27 @@ func (mem *MemoryGraph) AddEdge(from Ref, to Ref) {
 		"group":    "mid_straight",
 		"tailclip": "false",
 	}
-	mem.graph.AddPortEdge(from.String(), nextPort, to.String(), addressPort, true, attrs)
+	mem.graph.AddPortEdge(from.String(), nextPort, to.String(), addressPort, true, mem.addDefaultAttrs(attrs))
+}
+
+func (mem *MemoryGraph) Add() {
 }
 
 func (mem *MemoryGraph) String() string {
+	dgraph := NewDirectedGraph()
+	for _, node := range mem.nodes {
+		dgraph.AddEdge(Vertex(node.Address), Vertex(node.Next))
+	}
+
+	const pointersGraph = "pointersGraph"
+	mem.graph.AddSubGraph(defaultGraphName, pointersGraph, map[string]string{
+		"rank": "same",
+	})
+
+	subGraphs := dgraph.SubGraphs()
+	for _, subgraph := range subGraphs {
+		subgraph[0] = ""
+	}
+
 	return mem.graph.String()
 }

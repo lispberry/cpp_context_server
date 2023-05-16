@@ -1,4 +1,4 @@
-package visualization
+package dot
 
 import (
 	"testing"

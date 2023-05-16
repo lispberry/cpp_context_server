@@ -1,6 +1,7 @@
 package dot
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -18,8 +19,7 @@ func TestDeleteGraph(t *testing.T) {
 	graph := NewMemoryGraph()
 	originStr := graph.String()
 
-	const ref = "0xFFF"
-	graph.AddNode(ref, &Node{
+	ref := graph.AddNode(&Node{
 		Address: "0xFFFF",
 		Data:    "10",
 		Next:    "0x0",
@@ -30,4 +30,22 @@ func TestDeleteGraph(t *testing.T) {
 	if originStr != newStr {
 		t.Fail()
 	}
+}
+
+func TestCreateGraph(t *testing.T) {
+	graph := NewMemoryGraph()
+
+	ref := graph.AddNode(&Node{
+		Address: "0xF",
+		Data:    "10",
+		Next:    "0x0",
+	})
+	graph.AddPointer(&Pointer{
+		Name:    "head",
+		Address: ref,
+	})
+
+	graph.Add()
+
+	fmt.Println(graph.String())
 }
