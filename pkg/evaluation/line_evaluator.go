@@ -37,8 +37,13 @@ func compileProgram(program string) (string, error) {
 	return process.Name(), nil
 }
 
+type Var struct {
+	Name string
+}
+
 type LineEvaluator struct {
-	gdb *gdb.Gdb
+	gdb    *gdb.Gdb
+	output chan string
 }
 
 func New() (*LineEvaluator, error) {
@@ -47,19 +52,34 @@ func New() (*LineEvaluator, error) {
 		return nil, err
 	}
 
+	output := make(chan string)
+	go func() {
+		for {
+			line, err := readUntil(gdb, 10)
+			if err == io.EOF {
+				return
+			}
+			output <- string(line)
+		}
+	}()
+
 	return &LineEvaluator{
-		gdb: gdb,
+		gdb:    gdb,
+		output: output,
 	}, nil
 }
 
 func mapGoToCpp(val interface{}) string {
-	switch val.(type) {
+	switch data := val.(type) {
 	case int:
-		return strconv.Itoa(val.(int))
+		return strconv.Itoa(data)
 	case string:
-		return "\"" + val.(string) + "\""
+		// TODO
+		return data
+	case Var:
+		return data.Name
 	default:
-		panic("couldn't mapGoToCpp")
+		panic("Invalid mapGoToCpp value")
 	}
 }
 
@@ -71,14 +91,22 @@ func readUntil(reader io.Reader, sep byte) ([]byte, error) {
 		if err != nil && err != io.EOF {
 			return nil, err
 		}
-		if err == io.EOF || buf[0] == sep {
+		if err == io.EOF {
+			return res, err
+		}
+		if buf[0] == sep {
 			return res, nil
 		}
+
 		if buf[0] == 13 {
 			continue
 		}
 		res = append(res, buf[0])
 	}
+}
+
+func (lev *LineEvaluator) Output() chan string {
+	return lev.output
 }
 
 func (lev *LineEvaluator) ReadLine() ([]byte, error) {
@@ -135,6 +163,29 @@ func (lev *LineEvaluator) EvaluateProgram(sourceCode string) error {
 	return nil
 }
 
+func (lev *LineEvaluator) EvaluateFile(path string) error {
+	_, err := lev.gdb.Send("file-exec-and-symbols", path)
+	if err != nil {
+		return err
+	}
+
+	_, err = lev.gdb.Send("break-insert", "main")
+	if err != nil {
+		return err
+	}
+
+	_, err = lev.gdb.Send("exec-run")
+	if err != nil {
+		return err
+	}
+
+	name, _ := lev.CurrentFuncName()
+	line, _ := lev.CurrentLine()
+	fmt.Printf("%s %d", name, line)
+
+	return nil
+}
+
 type ExpResult interface {
 }
 
@@ -161,7 +212,9 @@ func (lev *LineEvaluator) EvaluateFunc(funcName string, values ...interface{}) (
 		return nil, err
 	}
 
-	_, err = lev.gdb.Send("data-evaluate-expression", functionCall)
+	out, err := lev.gdb.Send("data-evaluate-expression", functionCall)
+	fmt.Println(out)
+	fmt.Println(functionCall)
 	if err != nil {
 		return nil, err
 	}

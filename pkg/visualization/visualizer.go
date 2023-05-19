@@ -10,25 +10,24 @@ type Visualizer struct {
 	memGraph *dot.MemoryGraph
 }
 
-func NewVisualizer() *Visualizer {
+func NewVisualizer() (*Visualizer, error) {
 	return &Visualizer{
 		memGraph: dot.NewMemoryGraph(),
-	}
+	}, nil
 }
 
 func (v *Visualizer) Apply(ops []RawOp) ([]string, error) {
-	var dots []string
+	v.memGraph = dot.NewMemoryGraph()
 
 	for _, rawOp := range ops {
 		op, err := v.newOp(rawOp)
 		if err != nil {
 			return nil, err
 		}
-
-		dots = append(dots, v.applyOp(op))
+		v.applyOp(op)
 	}
 
-	return dots, nil
+	return v.memGraph.Changes(), nil
 }
 
 func (v *Visualizer) newOp(op RawOp) (Op, error) {
@@ -36,6 +35,14 @@ func (v *Visualizer) newOp(op RawOp) (Op, error) {
 	switch op.Kind {
 	case NewListPointerKind:
 		action = new(NewListPointer)
+	case SetListPointerValueKind:
+		action = new(SetListPointerValue)
+	case NewListNodeKind:
+		action = new(NewListNode)
+	case SetListNodeNextKind:
+		action = new(SetListNodeNext)
+	case SetListNodeValueKind:
+		action = new(SetListNodeValue)
 	}
 
 	err := json.Unmarshal(op.Data, action)
@@ -46,11 +53,22 @@ func (v *Visualizer) newOp(op RawOp) (Op, error) {
 	return action, nil
 }
 
-func (v *Visualizer) applyOp(op Op) string {
+func (v *Visualizer) applyOp(op Op) {
 	switch opd := op.(type) {
-	case NewListPointer:
-		return opd.Name
+	case *NewListPointer:
+		v.memGraph.Pointer(opd.Name, dot.NullptrRef)
+	case *SetListPointerValue:
+		ptr := v.memGraph.GetPointer(opd.Name)
+		ptr.SetAddress(dot.Ref(opd.Address))
+	case *SetListNodeNext:
+		node := v.memGraph.GetListNode(dot.Ref(opd.Address))
+		node.SetNext(dot.Ref(opd.Next))
+	case *SetListNodeValue:
+		node := v.memGraph.GetListNode(dot.Ref(opd.Address))
+		node.SetData(opd.Value)
+	case *NewListNode:
+		v.memGraph.ListNode(dot.Ref(opd.Address), "0", dot.NullptrRef)
 	default:
-		return ""
+		println("here")
 	}
 }

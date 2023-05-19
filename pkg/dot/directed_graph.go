@@ -1,62 +1,72 @@
 package dot
 
-type DirectedGraph struct {
+type DirectedGraph[Vertex comparable] struct {
 	graph map[Vertex][]Vertex
 }
 
-type Vertex string
-
-func (v Vertex) String() string {
-	return string(v)
-}
-
-func NewDirectedGraph() *DirectedGraph {
-	return &DirectedGraph{
+func NewDirectedGraph[Vertex comparable]() *DirectedGraph[Vertex] {
+	return &DirectedGraph[Vertex]{
 		graph: make(map[Vertex][]Vertex),
 	}
 }
 
-func (g *DirectedGraph) AddVertex(vertex Vertex) {
+func (g *DirectedGraph[Vertex]) AddVertex(vertex Vertex) {
 	if _, exists := g.graph[vertex]; !exists {
 		g.graph[vertex] = []Vertex{}
 	}
 }
 
-func (g *DirectedGraph) AddEdge(to Vertex, from Vertex) {
+func (g *DirectedGraph[Vertex]) AddEdge(to Vertex, from Vertex) {
 	g.AddVertex(to)
 	g.AddVertex(from)
 	g.graph[to] = append(g.graph[to], from)
-	g.graph[from] = append(g.graph[from], to)
 }
 
-func (g *DirectedGraph) SubGraphs() [][]Vertex {
-	unusedColor := 0
-	colored := make(map[Vertex]int)
-	var result [][]Vertex
+type data struct {
+	order int
+	color int
+}
 
-	var dfs func(vertex Vertex)
-	dfs = func(vertex Vertex) {
-		if _, exists := colored[vertex]; exists {
-			return
+func (g *DirectedGraph[Vertex]) SubGraphs() [][]Vertex {
+	usedColors := map[int]int{}
+	unusedColor := 0
+	colored := make(map[Vertex]data)
+
+	var dfs func(vertex Vertex, order int)
+	dfs = func(vertex Vertex, order int) {
+		if _, exists := usedColors[unusedColor]; !exists {
+			usedColors[unusedColor] = order
 		}
-		colored[vertex] = unusedColor
+		if usedColors[unusedColor] < order {
+			usedColors[unusedColor] = order
+		}
+		colored[vertex] = data{
+			order: order,
+			color: unusedColor,
+		}
 		for _, adj := range g.graph[vertex] {
-			dfs(adj)
+			delete(usedColors, colored[adj].color)
+			order++
+			dfs(adj, order)
 		}
 	}
 
 	for vertex := range g.graph {
-		dfs(vertex)
-		unusedColor++
+		if _, ok := colored[vertex]; !ok {
+			unusedColor++
+			dfs(vertex, 0)
+		}
 	}
 
-	colorMap := make(map[int][]Vertex)
-	for vertex, color := range colored {
-		colorMap[color] = append(colorMap[color], vertex)
-	}
-
-	for _, vertices := range colorMap {
-		result = append(result, vertices)
+	var result [][]Vertex
+	for color, amount := range usedColors {
+		nodes := make([]Vertex, amount+1)
+		for node, data := range colored {
+			if data.color == color {
+				nodes[data.order] = node
+			}
+		}
+		result = append(result, nodes)
 	}
 
 	return result

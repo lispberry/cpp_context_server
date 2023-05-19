@@ -6,5 +6,7 @@ require (
 	github.com/awalterschulze/gographviz v2.0.3+incompatible // indirect
 	github.com/creack/pty v1.1.18 // indirect
 	github.com/cyrus-and/gdb v0.0.0-20230321224603-9424cb2f2a86 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/kr/pty v1.1.8 // indirect
+	gonum.org/v1/gonum v0.13.0 // indirect
 )

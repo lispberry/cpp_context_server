@@ -1,30 +1,68 @@
 package dot
 
-import "fmt"
-
 type Pointer struct {
+	mem     *MemoryGraph
+	node    *Node
 	Name    string
 	Address Ref
 }
 
-func (p *Pointer) Table() string {
-	var address string
-	if p.Address == "0x0" || p.Address == "" {
-		address = `<td port="address" width="28" height="36" bgcolor="#C1FF83"></td>`
-	} else {
-		address = fmt.Sprintf(`<td port="address" width="28" height="36" bgcolor="#C1FF83">%s</td>`, p.Address.Value())
+const (
+	pointerValuePort = "value"
+	pointerNamePort  = "name"
+)
+
+func newPointer(mem *MemoryGraph, name string, address Ref) *Pointer {
+	node := NewNode(Ref(name), 1, 2)
+	node.Attrs = map[string]string{
+		"border":      "0",
+		"cellspacing": "0",
+		"cellborder":  "1",
 	}
 
-	const table = `<<table border="0" cellspacing="0" cellborder="1">
-		<tr>
-			<td port="name" width="28" height="36">%s</td>
-			%s
-		</tr>
-	</table>>`
+	// TODO(ivo): Ugly
+	addrAttrs := defaultAttrs(pointerValuePort)
+	addrValue := address.Value()
+	if address == NullptrRef {
+		addrAttrs["bgColor"] = nullptrColor
+		addrValue = ""
+	}
 
-	return fmt.Sprintf(table, p.Name, address)
+	node.Table[0] = []Cell{
+		Cell{
+			Value: name,
+			Attrs: defaultAttrs(pointerNamePort),
+		},
+		Cell{
+			Value: addrValue,
+			Attrs: addrAttrs,
+		},
+	}
+
+	return &Pointer{
+		mem:     mem,
+		node:    node,
+		Name:    name,
+		Address: address,
+	}
 }
 
-func (p *Pointer) SetAddress(address string) {
+func (p *Pointer) SetAddress(address Ref) {
+	if address == NullptrRef {
+		p.Address = "0x0"
+		p.node.Table[0][1].Attrs["bgColor"] = nullptrColor
+		p.node.Table[0][1].Value = ""
+		p.mem.changed()
+		return
+	}
 
+	p.node.Table[0][1].Attrs["bgColor"] = defaultChangeColor
+	p.mem.changed()
+
+	p.Address = address
+	p.node.Table[0][1].Value = address.Value()
+	p.mem.changed()
+
+	delete(p.node.Table[0][1].Attrs, "bgColor")
+	p.mem.changed()
 }
