@@ -1,3 +1,0 @@
-/app1/runtime/CMakeFiles/runtime.dir
-/app1/runtime/CMakeFiles/edit_cache.dir
-/app1/runtime/CMakeFiles/rebuild_cache.dir

@@ -134,16 +134,7 @@ void insertEnd(List * head, int val)
 		t.Fatalf("%v", err)
 	}
 
-	var args []interface{}
-	for _, arg := range fn.Arguments {
-		if arg.Type == "int *" {
-			args = append(args, fmt.Sprintf(`unmove(CreatePointer("%s"))`, arg.Name))
-		} else {
-			args = append(args, 10)
-		}
-	}
-
-	next, err := lev.EvaluateFunc(`i`, args...)
+	next, err := lev.EvaluateFunc(fn.Name, fn.Signature(), fn.Callable(10)...)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}

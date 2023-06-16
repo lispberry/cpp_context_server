@@ -42,11 +42,12 @@ func TestReadOutput(t *testing.T) {
 		t.Fail()
 	}
 
-	bytes, err := lev.ReadLine()
-	if err != nil {
-		t.Fail()
-	}
-	if string(bytes) != "123" {
+	select {
+	case line, ok := <-lev.Output():
+		if !ok || line != "123" {
+			t.Fail()
+		}
+	default:
 		t.Fail()
 	}
 }
@@ -91,7 +92,7 @@ func TestEvaluateExp(t *testing.T) {
 		{"Create a struct", "test", "{x = 10, y = 20}"},
 	}
 
-	next, err := lev.EvaluateFunc("program")
+	next, err := lev.EvaluateFunc("program", "void(*)()")
 	if err != nil {
 		t.Fail()
 	}
@@ -133,7 +134,7 @@ func TestEvaluateFunction(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	next, err := lev.EvaluateFunc("program", 10, 20, 30)
+	next, err := lev.EvaluateFunc("program", "int(*)(int, int, int)", 10, 20, 30)
 	if err != nil {
 		t.Errorf("%v", err)
 	}

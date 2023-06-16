@@ -1,1 +1,0 @@
-/usr/bin/c++  -O0 -g3 CMakeFiles/runtime.dir/runtime.cpp.o CMakeFiles/runtime.dir/program.cpp.o -o runtime 

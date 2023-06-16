@@ -105,21 +105,20 @@ func readUntil(reader io.Reader, sep byte) ([]byte, error) {
 	}
 }
 
+func (lev *LineEvaluator) send(operation string, arguments ...string) (map[string]interface{}, error) {
+	// TODO(ivo): Add Verbose option to control these logs
+	log.Printf("%s %s;\n", operation, strings.Join(arguments, ", "))
+	out, err := lev.gdb.Send(operation, arguments...)
+	log.Printf("%v\n", out)
+	return out, err
+}
+
 func (lev *LineEvaluator) Output() chan string {
 	return lev.output
 }
 
-func (lev *LineEvaluator) ReadLine() ([]byte, error) {
-	data, err := readUntil(lev.gdb, 10)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return data, nil
-}
-
 func (lev *LineEvaluator) CurrentFuncName() (string, error) {
-	res, err := lev.gdb.Send("stack-info-frame")
+	res, err := lev.send("stack-info-frame")
 	if err != nil {
 		return "", err
 	}
@@ -129,7 +128,7 @@ func (lev *LineEvaluator) CurrentFuncName() (string, error) {
 }
 
 func (lev *LineEvaluator) CurrentLine() (int, error) {
-	res, err := lev.gdb.Send("stack-info-frame")
+	res, err := lev.send("stack-info-frame")
 	if err != nil {
 		return 0, err
 	}
@@ -145,17 +144,17 @@ func (lev *LineEvaluator) EvaluateProgram(sourceCode string) error {
 		return err
 	}
 
-	_, err = lev.gdb.Send("file-exec-and-symbols", program)
+	_, err = lev.send("file-exec-and-symbols", program)
 	if err != nil {
 		return err
 	}
 
-	_, err = lev.gdb.Send("break-insert", "main")
+	_, err = lev.send("break-insert", "main")
 	if err != nil {
 		return err
 	}
 
-	_, err = lev.gdb.Send("exec-run")
+	_, err = lev.send("exec-run")
 	if err != nil {
 		return err
 	}
@@ -164,17 +163,17 @@ func (lev *LineEvaluator) EvaluateProgram(sourceCode string) error {
 }
 
 func (lev *LineEvaluator) EvaluateFile(path string) error {
-	_, err := lev.gdb.Send("file-exec-and-symbols", path)
+	_, err := lev.send("file-exec-and-symbols", path)
 	if err != nil {
 		return err
 	}
 
-	_, err = lev.gdb.Send("break-insert", "main")
+	_, err = lev.send("break-insert", "main")
 	if err != nil {
 		return err
 	}
 
-	_, err = lev.gdb.Send("exec-run")
+	_, err = lev.send("exec-run")
 	if err != nil {
 		return err
 	}
@@ -186,11 +185,8 @@ func (lev *LineEvaluator) EvaluateFile(path string) error {
 	return nil
 }
 
-type ExpResult interface {
-}
-
 func (lev *LineEvaluator) EvaluateExp(exp string) (interface{}, error) {
-	res, err := lev.gdb.Send("data-evaluate-expression", exp)
+	res, err := lev.send("data-evaluate-expression", exp)
 	if err != nil {
 		return nil, err
 	}
@@ -200,21 +196,19 @@ func (lev *LineEvaluator) EvaluateExp(exp string) (interface{}, error) {
 	return payload["value"], nil
 }
 
-func (lev *LineEvaluator) EvaluateFunc(funcName string, values ...interface{}) (func() bool, error) {
+func (lev *LineEvaluator) EvaluateFunc(funcName string, signature string, values ...interface{}) (func() bool, error) {
 	mappedValues := make([]string, len(values))
 	for i, val := range values {
 		mappedValues[i] = mapGoToCpp(val)
 	}
-	functionCall := funcName + "(" + strings.Join(mappedValues, ", ") + ")"
+	functionCall := fmt.Sprintf("reinterpret_cast<%s>(%s)(%s)", signature, funcName, strings.Join(mappedValues, ", "))
 
-	_, err := lev.gdb.Send("break-insert", funcName)
+	_, err := lev.send("break-insert", funcName)
 	if err != nil {
 		return nil, err
 	}
 
-	out, err := lev.gdb.Send("data-evaluate-expression", functionCall)
-	fmt.Println(out)
-	fmt.Println(functionCall)
+	_, err = lev.send("data-evaluate-expression", functionCall)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +223,7 @@ func (lev *LineEvaluator) EvaluateFunc(funcName string, values ...interface{}) (
 			return false
 		}
 
-		_, err = lev.gdb.Send("exec-next")
+		_, err = lev.send("exec-next")
 		if err != nil {
 			log.Println(err)
 		}

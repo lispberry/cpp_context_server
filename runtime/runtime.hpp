@@ -82,7 +82,11 @@ public:
   explicit Pointer(T* data)
     : m_name("")
     , m_data(data)
-  {}
+  {
+      Write(json::array({
+        internal::createNewListNode(Address())
+      }));
+  }
 
   Pointer(Pointer const & that) {
     m_data = that.m_data;

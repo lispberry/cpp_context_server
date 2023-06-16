@@ -16,18 +16,24 @@ func NewVisualizer() (*Visualizer, error) {
 	}, nil
 }
 
-func (v *Visualizer) Apply(ops []RawOp) ([]string, error) {
-	v.memGraph = dot.NewMemoryGraph()
-
+func (v *Visualizer) Apply(ops []RawOp) error {
 	for _, rawOp := range ops {
 		op, err := v.newOp(rawOp)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		v.applyOp(op)
 	}
 
-	return v.memGraph.Changes(), nil
+	return nil
+}
+
+func (v *Visualizer) Changes() []string {
+	return v.memGraph.Changes()
+}
+
+func (v *Visualizer) DeleteStackFrame() {
+	v.memGraph.DeleteAllPointers()
 }
 
 func (v *Visualizer) newOp(op RawOp) (Op, error) {

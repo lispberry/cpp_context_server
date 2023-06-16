@@ -171,6 +171,11 @@ func (mem *MemoryGraph) GetListNode(address Ref) *ListNode {
 	return nil
 }
 
+func (mem *MemoryGraph) DeleteAllPointers() {
+	mem.pointers = []*Pointer{}
+	mem.changed()
+}
+
 func (mem *MemoryGraph) Pointer(name string, address Ref) *Pointer {
 	ptr := newPointer(mem, name, address)
 	mem.pointers = append(mem.pointers, ptr)
